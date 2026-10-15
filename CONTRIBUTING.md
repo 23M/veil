@@ -7,7 +7,7 @@
 - PHP extensions: ctype, curl, dom, fileinfo, filter, hash, iconv, mbstring,
   openssl, PDO, pdo_sqlite, session, tokenizer, xml, xmlwriter, and zip; zlib for
   compressed exports. Composer checks the resolved packages' platform requirements.
-- Bash and internet access to Packagist/GitHub for the application smoke test.
+- Internet access to Packagist/GitHub when installing dependencies.
 
 No MySQL server, `mysqldump`, or real application database is needed. The package
 suite uses SQLite in memory and fake filesystem disks. Generated classes live in
@@ -29,7 +29,7 @@ PHPUnit 12. `composer install` reproduces that environment; installing this pack
 in another application uses that application's lock, not this one.
 
 To select a framework explicitly, use one of these commands (they update your
-local lock file; do not commit an incidental matrix switch):
+local lock file; do not commit an incidental framework switch):
 
 ```bash
 # Laravel 13 / Testbench 11 / PHPUnit 12
@@ -49,9 +49,12 @@ vendor/bin/phpunit --display-all-issues --fail-on-warning --fail-on-deprecation
 Testbench's actual Composer requirements/conflicts were checked: Testbench 9
 selects Laravel 11, 10 selects Laravel 12, and 11 selects Laravel 13. PHPUnit 12
 requires PHP >= 8.3; Testbench 11 supports PHPUnit >= 12.5.8 in the 12.x series.
-The package permits PHPUnit 10.5/11/12 for older framework environments, while CI
-explicitly selects PHPUnit 11 for Laravel 11/12 and PHPUnit 12 for Laravel 13.
-No framework or PHPUnit major is inferred from the PHP version alone.
+The package permits PHPUnit 10.5/11/12 for older framework environments.
+
+Routine development uses the PHPUnit suite. The GitHub workflow tests PHP 8.3
+and 8.4 using Composer's dependency selection; it does not separately enforce
+each supported Laravel major. Use the commands above when checking a specific
+framework version, especially before a release.
 
 ### Laravel 11 security limitation
 
@@ -63,41 +66,11 @@ with its default security policy. The local compatibility run used the already
 installed Composer 2.8.9, which reports advisories without blocking resolution;
 this is **not** evidence that Laravel 11 is safe for production.
 
-The CI matrix intentionally keeps current Composer security checks enabled and
-will report this Laravel 11 dependency-resolution failure until upstream fixes
-exist. It does not ignore advisories, downgrade Composer, or silently test Laravel
-12 instead. Do not disable security blocking just to make this job green. Prefer
-an up-to-date Laravel 12 or 13 application. `composer audit` reports the currently
-installed environment's advisories.
+Prefer an up-to-date Laravel 12 or 13 application. `composer audit` reports the
+currently installed environment's advisories. The restored original GitHub
+workflow disables advisory blocking during dependency updates; a passing CI run
+is therefore not a clean security audit.
 
-## Real Laravel 13 application smoke test
-
-```bash
-bash scripts/smoke-laravel13.sh
-```
-
-The script uses `composer create-project laravel/laravel ... '^13.0'` outside the
-source tree, adds a symlinked Composer path repository for this checkout, installs
-Veil, checks platform requirements and automatic provider discovery, verifies
-both commands, publishes config, loads a generated table class, and performs an
-actual export. It checks exact transformed and unchanged values, SQL NULLs, file
-output, and replay into a second in-memory SQLite database. It never seeds a
-customer database. The generated application and database are deleted on exit,
-including failure; normal Composer download caches remain.
-
-Optional settings (replace example paths with your own existing paths):
-
-```bash
-PACKAGE_PATH=/absolute/path/to/veil TEMP_BASE=/tmp bash scripts/smoke-laravel13.sh
-COMPOSER_BINARY=/absolute/path/to/composer.phar PHP_BINARY=/absolute/path/to/php bash scripts/smoke-laravel13.sh
-bash scripts/smoke-laravel13.sh --help
-```
-
-`TEMP_BASE` must already exist outside the package checkout. If selecting another
-PHP version, put its bin directory first in `PATH` as well so Composer's child
-processes use the same runtime. No platform-requirement overrides are used.
-The path repository assigns `dev-smoke` only to identify the local checkout; it
-does not alias Laravel versions or override dependency requirements.
 
 ## Install this fork into an existing Laravel application
 
@@ -157,8 +130,11 @@ deprecations configured to fail:
 | 13.36.0 | 8.4.25 | 11.3.0 | 12.5.39 |
 | 13.36.0 | 8.5.10 | 11.3.0 | 12.5.39 |
 
-The Laravel 13 application smoke test passed on PHP 8.3 with both Composer 2.8.9
-and current Composer 2.10.3 (Laravel skeleton 13.11.0 / framework 13.36.0).
+A one-time fresh Laravel 13 application check passed on PHP 8.3 with both Composer
+2.8.9 and Composer 2.10.3 (Laravel skeleton 13.11.0 / framework 13.36.0). It verified
+local installation, discovery, commands, config publishing, class generation, and
+an exact-value SQLite export. The temporary smoke-test tooling was subsequently
+removed; this is a historical verification record, not an ongoing CI check.
 Composer validation and platform checks passed. Laravel 12/13 dependency updates
 reported no security advisories. Current Composer's Laravel 11 security-resolution
 failure was reproduced separately without modifying the lock file.

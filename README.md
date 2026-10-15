@@ -25,7 +25,7 @@ Laravel 13 has been verified with PHPUnit 12 on PHP 8.3, 8.4, and 8.5, including
 installation and export in a fresh Laravel 13 application. Laravel 11 remains
 API-compatible but currently has upstream security advisories that block fresh
 resolution with current Composer. See [local development and compatibility testing](CONTRIBUTING.md)
-for the tested versions, security limitation, and reproducible commands.
+for the recorded compatibility checks, security limitation, and local PHPUnit commands.
 
 ### What changed in v2
 
@@ -388,8 +388,8 @@ The only steps needed:
 ## Local Development
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for installation, PHPUnit, framework-specific
-dependency selection, the Laravel 13 application smoke test, and installing a
-local checkout through a Composer path repository.
+dependency selection, and installing a local checkout through a Composer path
+repository.
 
 ## Security
 
