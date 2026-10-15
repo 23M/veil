@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Storage;
+use PHPUnit\Framework\Attributes\Test;
 use SignDeck\Veil\Contracts\VeilTable;
 use SignDeck\Veil\Events\ExportCompleted;
 use SignDeck\Veil\Events\ExportStarted;
@@ -24,7 +25,7 @@ class VeilEventsTest extends TestCase
         Event::fake();
     }
 
-    /** @test */
+    #[Test]
     public function it_fires_export_started_event(): void
     {
         $this->seedUsers();
@@ -40,7 +41,7 @@ class VeilEventsTest extends TestCase
         });
     }
 
-    /** @test */
+    #[Test]
     public function it_fires_export_started_event_with_custom_name(): void
     {
         $this->seedUsers();
@@ -56,7 +57,7 @@ class VeilEventsTest extends TestCase
         });
     }
 
-    /** @test */
+    #[Test]
     public function it_fires_export_completed_event(): void
     {
         $this->seedUsers();
@@ -73,7 +74,7 @@ class VeilEventsTest extends TestCase
         });
     }
 
-    /** @test */
+    #[Test]
     public function it_fires_export_completed_event_with_custom_name(): void
     {
         $this->seedUsers();
@@ -90,7 +91,7 @@ class VeilEventsTest extends TestCase
         });
     }
 
-    /** @test */
+    #[Test]
     public function it_fires_both_events_in_order(): void
     {
         $this->seedUsers();
@@ -111,7 +112,7 @@ class VeilEventsTest extends TestCase
         $this->assertNotEmpty($completedEvents);
     }
 
-    /** @test */
+    #[Test]
     public function it_includes_all_table_names_in_events(): void
     {
         $this->seedUsers();
@@ -134,7 +135,7 @@ class VeilEventsTest extends TestCase
         });
     }
 
-    /** @test */
+    #[Test]
     public function it_does_not_fire_events_when_no_tables_configured(): void
     {
         config(['veil.tables' => []]);

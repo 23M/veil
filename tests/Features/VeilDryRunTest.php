@@ -5,7 +5,9 @@ namespace SignDeck\Veil\Tests\Features;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Facades\Storage;
+use PHPUnit\Framework\Attributes\Test;
 use SignDeck\Veil\Tests\TestCase;
+use SignDeck\Veil\Tests\Tables\FilteredVeilTable;
 use SignDeck\Veil\Tests\Tables\NonExistentTable;
 use SignDeck\Veil\Tests\Tables\TestVeilPostsTable;
 use SignDeck\Veil\Tests\Tables\VeilUsersTable;
@@ -21,7 +23,7 @@ class VeilDryRunTest extends TestCase
         Storage::fake('veil');
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_empty_array_when_no_tables_configured(): void
     {
         config(['veil.tables' => []]);
@@ -35,7 +37,7 @@ class VeilDryRunTest extends TestCase
         $this->assertEmpty($preview);
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_preview_with_table_information(): void
     {
         $this->seedUsers(5);
@@ -55,7 +57,7 @@ class VeilDryRunTest extends TestCase
         $this->assertEquals(5, $preview[0]['row_count']);
     }
 
-    /** @test */
+    #[Test]
     public function it_does_not_create_any_files(): void
     {
         $this->seedUsers();
@@ -71,7 +73,7 @@ class VeilDryRunTest extends TestCase
         $this->assertEmpty($files);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_multiple_tables(): void
     {
         $this->seedUsers(3);
@@ -94,7 +96,23 @@ class VeilDryRunTest extends TestCase
         $this->assertEquals(2, $preview[1]['row_count']);
     }
 
-    /** @test */
+    #[Test]
+    public function it_counts_only_rows_matching_the_table_query_scope(): void
+    {
+        $this->seedUsers(3);
+        config(['veil.tables' => [FilteredVeilTable::class]]);
+
+        $this->assertSame([
+            [
+                'name' => 'users',
+                'columns' => ['id', 'email'],
+                'row_count' => 1,
+            ],
+        ], app(VeilDryRun::class)->preview());
+        $this->assertSame([], Storage::disk('veil')->allFiles());
+    }
+
+    #[Test]
     public function it_handles_nonexistent_tables_gracefully(): void
     {
         config(['veil.tables' => [NonExistentTable::class]]);
