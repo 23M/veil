@@ -18,8 +18,14 @@ Veil lets you define anonymization rules per table and column, ensuring sensitiv
 
 | Veil | Laravel | PHP |
 |------|---------|-----|
-| 2.x  | 11.x, 12.x | 8.3+ |
+| 2.x  | 11.x, 12.x, 13.x | 8.3+ |
 | 1.x  | 11.x   | 8.3+ |
+
+Laravel 13 has been verified with PHPUnit 12 on PHP 8.3, 8.4, and 8.5, including
+installation and export in a fresh Laravel 13 application. Laravel 11 remains
+API-compatible but currently has upstream security advisories that block fresh
+resolution with current Composer. See [local development and compatibility testing](CONTRIBUTING.md)
+for the recorded compatibility checks, security limitation, and local PHPUnit commands.
 
 ### What changed in v2
 
@@ -378,6 +384,12 @@ The only steps needed:
    ```
 
 3. The `mysqldump` binary is no longer required on your server.
+
+## Local Development
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for installation, PHPUnit, framework-specific
+dependency selection, and installing a local checkout through a Composer path
+repository.
 
 ## Security
 

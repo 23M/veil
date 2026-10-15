@@ -2,9 +2,11 @@
 
 namespace SignDeck\Veil\Tests\Features;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Facades\Storage;
+use PHPUnit\Framework\Attributes\Test;
 use SignDeck\Veil\AsIs;
 use SignDeck\Veil\Contracts\VeilTable;
 use SignDeck\Veil\Exceptions\ContractImplementationException;
@@ -19,6 +21,7 @@ use SignDeck\Veil\Tests\Tables\NumericAnonymizedVeilTable;
 use SignDeck\Veil\Tests\Tables\PartialColumnsVeilTable;
 use SignDeck\Veil\Tests\Tables\QuotedValueVeilTable;
 use SignDeck\Veil\Tests\Tables\RowAccessVeilTable;
+use SignDeck\Veil\Tests\Tables\TestVeilPostsTable;
 use SignDeck\Veil\Tests\Tables\TestVeilUsersTable;
 use SignDeck\Veil\Tests\Tables\UnchangedColumnsVeilTable;
 use SignDeck\Veil\Tests\TestCase;
@@ -34,7 +37,7 @@ class VeilTest extends TestCase
         Storage::fake('veil');
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_null_when_no_tables_configured(): void
     {
         config(['veil.tables' => []]);
@@ -45,23 +48,22 @@ class VeilTest extends TestCase
         $this->assertNull($result);
     }
 
-    /** @test */
+    #[Test]
     public function it_creates_export_file(): void
     {
         $this->seedUsers();
 
         config(['veil.tables' => [TestVeilUsersTable::class]]);
 
-        $veil = app(Veil::class);
-        $fileName = $veil->handle();
+        $this->travelTo(Carbon::parse('2026-01-02 03:04:05'), function () {
+            $fileName = app(Veil::class)->handle();
 
-        $this->assertNotNull($fileName);
-        $this->assertStringStartsWith('veil_', $fileName);
-        $this->assertStringEndsWith('.sql', $fileName);
-        $this->assertTrue(Storage::disk('veil')->exists($fileName));
+            $this->assertSame('veil_2026-01-02_03-04-05.sql', $fileName);
+            $this->assertSame([$fileName], Storage::disk('veil')->files());
+        });
     }
 
-    /** @test */
+    #[Test]
     public function it_uses_custom_snapshot_name_when_provided(): void
     {
         $this->seedUsers();
@@ -71,13 +73,11 @@ class VeilTest extends TestCase
         $veil = app(Veil::class);
         $fileName = $veil->handle('custom-export-name');
 
-        $this->assertNotNull($fileName);
-        $this->assertStringContainsString('custom-export-name', $fileName);
-        $this->assertStringEndsWith('.sql', $fileName);
+        $this->assertSame('custom-export-name.sql', $fileName);
         $this->assertTrue(Storage::disk('veil')->exists($fileName));
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_preview_array_in_dry_run_mode(): void
     {
         $this->seedUsers(3);
@@ -101,7 +101,7 @@ class VeilTest extends TestCase
         $this->assertEmpty($files);
     }
 
-    /** @test */
+    #[Test]
     public function it_only_exports_columns_defined_in_veil_table(): void
     {
         $this->seedUsers();
@@ -119,7 +119,7 @@ class VeilTest extends TestCase
         $this->assertStringNotContainsString('`password`', $result);
     }
 
-    /** @test */
+    #[Test]
     public function it_anonymizes_columns_with_specified_values(): void
     {
         $this->seedUsers();
@@ -136,7 +136,7 @@ class VeilTest extends TestCase
         $this->assertStringContainsString('redacted@example.com', $result);
     }
 
-    /** @test */
+    #[Test]
     public function it_keeps_original_values_when_using_veil_unchanged(): void
     {
         $this->seedUsers();
@@ -154,7 +154,7 @@ class VeilTest extends TestCase
         $this->assertStringContainsString('anon@test.com', $result);
     }
 
-    /** @test */
+    #[Test]
     public function it_preserves_null_values(): void
     {
         // Insert a row with NULL created_at
@@ -166,15 +166,24 @@ class VeilTest extends TestCase
             'updated_at' => null,
         ]);
 
+        $this->app['db']->table('users')->insert([
+            'name' => 'Non-null timestamp',
+            'email' => 'timestamp@example.com',
+            'password' => 'secret',
+            'created_at' => '2025-06-15 12:30:00',
+        ]);
+
         config(['veil.tables' => [NullableColumnsVeilTable::class]]);
 
         $result = $this->exportAndGetContents();
 
-        // NULL values should be preserved
-        $this->assertStringContainsString('NULL', $result);
+        $this->assertSame(
+            "INSERT INTO `users` (`id`, `created_at`) VALUES (1, NULL), (2, '2024-01-01 00:00:00');\n",
+            $result
+        );
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_multiple_rows(): void
     {
         $this->seedUsers();
@@ -183,14 +192,13 @@ class VeilTest extends TestCase
 
         $result = $this->exportAndGetContents();
 
-        // Should have INSERT statement
-        $this->assertStringContainsString('INSERT INTO `users`', $result);
-
-        // Should have the anonymized email for each row
-        $this->assertStringContainsString('test@example.com', $result);
+        $this->assertSame(
+            "INSERT INTO `users` (`id`, `email`) VALUES (1, 'test@example.com'), (2, 'test@example.com'), (3, 'test@example.com');\n",
+            $result
+        );
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_numeric_values_correctly(): void
     {
         $this->seedUsers(1);
@@ -203,7 +211,7 @@ class VeilTest extends TestCase
         $this->assertStringContainsString('(999)', $result);
     }
 
-    /** @test */
+    #[Test]
     public function it_escapes_single_quotes_in_anonymized_values(): void
     {
         $this->seedUsers();
@@ -216,7 +224,7 @@ class VeilTest extends TestCase
         $this->assertStringContainsString("O\\'Brien", $result);
     }
 
-    /** @test */
+    #[Test]
     public function it_throws_exception_for_non_veil_table_class(): void
     {
         config(['veil.tables' => [InvalidVeilTable::class]]);
@@ -227,7 +235,7 @@ class VeilTest extends TestCase
         $veil->handle();
     }
 
-    /** @test */
+    #[Test]
     public function veil_unchanged_returns_asis_instance(): void
     {
         $result = Veil::unchanged();
@@ -235,7 +243,7 @@ class VeilTest extends TestCase
         $this->assertInstanceOf(AsIs::class, $result);
     }
 
-    /** @test */
+    #[Test]
     public function it_produces_empty_file_when_columns_array_is_empty(): void
     {
         $this->seedUsers();
@@ -248,7 +256,7 @@ class VeilTest extends TestCase
         $this->assertStringNotContainsString('INSERT INTO `users`', $result);
     }
 
-    /** @test */
+    #[Test]
     public function it_executes_callable_values(): void
     {
         $this->seedUsers();
@@ -263,7 +271,7 @@ class VeilTest extends TestCase
         $this->assertStringContainsString('USER3@EXAMPLE.COM', $result);
     }
 
-    /** @test */
+    #[Test]
     public function callable_receives_original_value(): void
     {
         $this->app['db']->table('users')->insert([
@@ -280,7 +288,7 @@ class VeilTest extends TestCase
         $this->assertStringContainsString('john@example.com.redacted', $result);
     }
 
-    /** @test */
+    #[Test]
     public function callable_can_return_different_values_per_row(): void
     {
         $this->seedUsers();
@@ -327,7 +335,7 @@ class VeilTest extends TestCase
         $this->assertStringContainsString('(102)', $result);
     }
 
-    /** @test */
+    #[Test]
     public function callable_can_access_other_columns_via_row_parameter(): void
     {
         $this->seedUsers();
@@ -342,7 +350,7 @@ class VeilTest extends TestCase
         $this->assertStringContainsString('user3@example.com', $result);
     }
 
-    /** @test */
+    #[Test]
     public function callable_can_combine_multiple_row_values(): void
     {
         $this->seedUsers();
@@ -357,7 +365,7 @@ class VeilTest extends TestCase
         $this->assertStringContainsString('Anonymous User #3', $result);
     }
 
-    /** @test */
+    #[Test]
     public function it_filters_rows_based_on_query_scope(): void
     {
         $this->seedUsers();
@@ -366,13 +374,13 @@ class VeilTest extends TestCase
 
         $result = $this->exportAndGetContents();
 
-        // Should only contain user with id = 1 (filtered by query)
-        $this->assertStringContainsString('(1,', $result);
-        $this->assertStringNotContainsString('(2,', $result);
-        $this->assertStringNotContainsString('(3,', $result);
+        $this->assertSame(
+            "INSERT INTO `users` (`id`, `email`) VALUES (1, 'redacted@example.com');\n",
+            $result
+        );
     }
 
-    /** @test */
+    #[Test]
     public function it_exports_all_rows_when_query_returns_null(): void
     {
         $this->seedUsers();
@@ -387,7 +395,7 @@ class VeilTest extends TestCase
         $this->assertStringContainsString('(3,', $result);
     }
 
-    /** @test */
+    #[Test]
     public function it_produces_only_insert_statements(): void
     {
         $this->seedUsers();
@@ -400,6 +408,31 @@ class VeilTest extends TestCase
         $this->assertStringContainsString('INSERT INTO', $result);
         $this->assertStringNotContainsString('CREATE TABLE', $result);
         $this->assertStringNotContainsString('DROP TABLE', $result);
+    }
+
+    #[Test]
+    public function it_exports_multiple_tables_in_order_to_only_the_configured_disk(): void
+    {
+        Storage::fake('snapshots');
+        $this->seedUsers(2);
+        $this->seedPosts(1);
+        config([
+            'veil.disk' => 'snapshots',
+            'veil.tables' => [TestVeilUsersTable::class, TestVeilPostsTable::class],
+        ]);
+
+        $fileName = app(Veil::class)->handle('multiple-tables');
+
+        $this->assertSame('multiple-tables.sql', $fileName);
+        $this->assertSame(['multiple-tables.sql'], Storage::disk('snapshots')->files());
+        $this->assertSame([], Storage::disk('veil')->allFiles());
+        $this->assertSame(
+            "INSERT INTO `users` (`id`, `email`) VALUES (1, 'test@example.com'), (2, 'test@example.com');\n"
+            . "INSERT INTO `posts` (`id`, `title`) VALUES (1, 'Anonymized Title');\n",
+            Storage::disk('snapshots')->get($fileName)
+        );
+        $this->assertSame('user1@example.com', $this->app['db']->table('users')->where('id', 1)->value('email'));
+        $this->assertSame('Post Title 1', $this->app['db']->table('posts')->where('id', 1)->value('title'));
     }
 
     /**

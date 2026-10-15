@@ -17,6 +17,9 @@
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
+        <env name="VEIL_DISK" value="local" force="true"/>
+        <env name="VEIL_COMPRESS" value="(false)" force="true"/>
+        <env name="VEIL_CONNECTION" value="(null)" force="true"/>
         <env name="DB_CONNECTION" value="sqlite"/>
         <env name="DB_DATABASE" value=":memory:"/>
     </php>
