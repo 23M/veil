@@ -2,38 +2,64 @@ name: Tests
 
 on:
   push:
-    branches:
-      - main
-      - master
+    branches: [main, master]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   tests:
     runs-on: ubuntu-latest
-
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
-        php: [8.3, 8.4]
-
-    name: PHP ${{ matrix.php }}
-
+        include:
+          - laravel: '11'
+            php: '8.3'
+            testbench: '^9.0'
+            phpunit: '^11.5.3'
+          - laravel: '12'
+            php: '8.3'
+            testbench: '^10.0'
+            phpunit: '^11.5.3'
+          - laravel: '13'
+            php: '8.3'
+            testbench: '^11.0'
+            phpunit: '^12.5.8'
+          - laravel: '13'
+            php: '8.4'
+            testbench: '^11.0'
+            phpunit: '^12.5.8'
+          - laravel: '13'
+            php: '8.5'
+            testbench: '^11.0'
+            phpunit: '^12.5.8'
+    name: Laravel ${{ matrix.laravel }} / PHP ${{ matrix.php }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite
+          extensions: dom, curl, fileinfo, mbstring, zip, pcntl, pdo_sqlite, xml, xmlwriter
+          tools: composer:v2
           coverage: none
-
-      - name: Install dependencies
+      - name: Validate committed manifest and lock
+        run: composer validate --strict
+      - name: Resolve the intended framework and test tools
+        run: >-
+          composer update
+          --with='laravel/framework:^${{ matrix.laravel }}.0'
+          --with='orchestra/testbench:${{ matrix.testbench }}'
+          --with='phpunit/phpunit:${{ matrix.phpunit }}'
+          --prefer-stable --prefer-dist --no-interaction --no-progress
+      - name: Validate resolved dependencies
+        env:
+          EXPECTED_LARAVEL: ${{ matrix.laravel }}
         run: |
-          composer config --no-interaction policy.advisories.block false
-          composer update --prefer-stable --prefer-dist --no-interaction --no-progress
-
-      - name: Run tests
-        run: vendor/bin/phpunit
-
+          composer validate --strict
+          composer check-platform-reqs
+          php -r 'require "vendor/autoload.php"; $actual = explode(".", Illuminate\Foundation\Application::VERSION)[0]; if ($actual !== getenv("EXPECTED_LARAVEL")) { fwrite(STDERR, "Wrong Laravel major: ".$actual.PHP_EOL); exit(1); }'
+      - name: Run SQLite tests
+        run: vendor/bin/phpunit --display-all-issues --fail-on-warning --fail-on-deprecation
+      - name: Smoke test a fresh Laravel 13 application
+        if: matrix.laravel == '13' && matrix.php == '8.3'
+        run: bash scripts/smoke-laravel13.sh
